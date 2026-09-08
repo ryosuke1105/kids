@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>北九州キッズナビ</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    
+    <!-- 0. チュートリアル画面（初期表示） -->
+    <div id="tutorial-screen" class="screen active">
+      <header>
+        <h1>キッズナビへようこそ！</h1>
+      </header>
+      <div class="tutorial-content">
+        <p class="tutorial-intro">あそびのさがしかた 🔍</p>
+        
+        <div class="tutorial-step">
+          <span class="step-emoji">1️⃣</span>
+          <p>いつ・どこで遊ぶか<strong>条件をえらぼう</strong>！</p>
+        </div>
+        <div class="tutorial-step">
+          <span class="step-emoji">2️⃣</span>
+          <p>いきたいカードは<strong>「いきたい」ボタン</strong>か右スワイプ！</p>
+        </div>
+        <div class="tutorial-step">
+          <span class="step-emoji">3️⃣</span>
+          <p>「リスト」から<strong>お気に入りをチェック</strong>！</p>
+        </div>
+
+        <button id="enter-app-btn" class="primary-btn">あそびをさがす！</button>
+      </div>
+    </div>
+
+    <!-- 1. フィルター画面 -->
+    <div id="filter-screen" class="screen">
+      <header>
+        <h1>どこにあそびにいく？</h1>
+      </header>
+      <div class="filter-section">
+        
+        <!-- 【新規追加】特集エリア（CSVから自動生成されます） -->
+        <h2>🌟 とくしゅう！</h2>
+        <div class="button-group" id="filter-feature">
+          <button class="filter-btn feature-btn active" data-val="すべて">すべて</button>
+        </div>
+
+        <h2>いつ？</h2>
+        <div class="button-group" id="filter-date">
+          <button class="filter-btn active" data-val="すべて">すべて</button>
+        </div>
+        
+        <h2>どこで？</h2>
+        <div class="button-group" id="filter-area">
+          <button class="filter-btn active" data-val="すべて">すべて</button>
+          <button class="filter-btn" data-val="門司区">門司区</button>
+          <button class="filter-btn" data-val="小倉北区">小倉北区</button>
+          <button class="filter-btn" data-val="小倉南区">小倉南区</button>
+          <button class="filter-btn" data-val="若松区">若松区</button>
+          <button class="filter-btn" data-val="八幡東区">八幡東区</button>
+          <button class="filter-btn" data-val="八幡西区">八幡西区</button>
+          <button class="filter-btn" data-val="戸畑区">戸畑区</button>
+          <button class="filter-btn" data-val="市外">市外</button>
+        </div>
+
+        <h2>だれが？</h2>
+        <div class="button-group" id="filter-age">
+          <button class="filter-btn active" data-val="すべて">すべて</button>
+          <button class="filter-btn" data-val="未就学児">未就学児</button>
+          <button class="filter-btn" data-val="小学1〜3年生">小学1〜3年生</button>
+          <button class="filter-btn" data-val="小学4〜6年生">小学4〜6年生</button>
+          <button class="filter-btn" data-val="中学生">中学生</button>
+          <button class="filter-btn" data-val="高校生">高校生</button>
+          <button class="filter-btn" data-val="その他">その他</button>
+        </div>
+      </div>
+      <button id="start-btn" class="primary-btn">次へすすむ</button>
+    </div>
+
+    <!-- 2. スワイプ画面 -->
+    <div id="swipe-screen" class="screen">
+      <header>
+        <h1>気になるものをえらぼう！</h1>
+      </header>
+      
+      <div id="card-container">
+        <!-- JSでカードがこの中に追加されます -->
+        
+        <!-- 【重要】カードコンテナの中に、完了メッセージを入れます -->
+        <div id="swipe-finished" class="swipe-finished hidden">
+          <p class="finish-msg">検索した条件は以上だよ！<br>いきたいを選択したものはリストから見てみよう！</p>
+          <button id="restart-btn" class="primary-btn">もう一度選ぶ</button>
+        </div>
+      </div>
+
+      <div class="action-controls" id="action-controls">
+        <button id="skip-btn" class="pill-btn skip">👋 スキップ</button>
+        <button id="like-btn" class="pill-btn like">❤️ いきたい</button>
+      </div>
+      <p class="swipe-hint" id="swipe-hint">💡 ボタンをタップしてえらんでね！</p>
+
+      <div id="like-stamp" class="hidden">いいね！</div>
+    </div>
+
+    <!-- 3. お気に入り画面 -->
+    <div id="favorite-screen" class="screen">
+      <header>
+        <h1>お気に入りリスト</h1>
+      </header>
+      <div id="favorite-list"></div>
+    </div>
+
+    <!-- 4. 詳細画面 -->
+    <div id="detail-screen" class="screen">
+      <header style="position: relative;">
+        <button id="back-to-list-btn" class="back-btn">← もどる</button>
+        <h1>くわしい情報</h1>
+      </header>
+      <div id="detail-content"></div>
+    </div>
+
+    <!-- 画面下部のナビゲーション -->
+    <nav class="bottom-nav" id="bottom-nav">
+      <button onclick="switchScreen('filter-screen')">🔍 さがす</button>
+      <button onclick="switchScreen('swipe-screen')">🃏 あそぶ</button>
+      <button onclick="switchScreen('favorite-screen')">⭐ リスト</button>
+    </nav>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
