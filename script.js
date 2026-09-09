@@ -3,6 +3,7 @@ let filteredEvents = [];
 // 【変更】複数の条件を記憶できるように、それぞれを []（配列）にしました
 let currentFilters = {
   feature: ['すべて'],
+  category: ['すべて'],
   date: ['すべて'],
   area: ['すべて'],
   age: ['すべて']
@@ -18,9 +19,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   document.getElementById('enter-app-btn').addEventListener('click', () => {
-    switchScreen('filter-screen');
+    switchScreen('home-screen');
     document.getElementById('bottom-nav').style.display = 'flex';
   });
+
+  setupGridMenu();
+  setupFeedbackForm();
   
   document.getElementById('start-btn').addEventListener('click', () => {
     applyFilters();
@@ -59,6 +63,12 @@ document.addEventListener('DOMContentLoaded', () => {
       switchScreen('favorite-screen');
     });
   }
+
+  document.querySelectorAll('.reset-action-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      resetAllFilters();
+    });
+  });
 });
 
 function loadCSVData() {
@@ -176,12 +186,30 @@ function applyFilters() {
   filteredEvents = allEvents.filter(event => {
     // 配列の中に「すべて」が含まれているか、またはイベントの項目が配列の中に含まれていればOK
     const matchFeature = currentFilters.feature.includes('すべて') || currentFilters.feature.includes(event.feature);
+    const matchCategory = !currentFilters.category || currentFilters.category.includes('すべて') || currentFilters.category.includes(event.category);
     const matchDate = currentFilters.date.includes('すべて') || currentFilters.date.includes(String(event.event_start_month));
     const matchArea = currentFilters.area.includes('すべて') || currentFilters.area.includes(event.area);
     const matchAge = currentFilters.age.includes('すべて') || currentFilters.age.includes(event.age);
     
     // 全てのカテゴリーで条件をクリアしたカードだけを残す
-    return matchFeature && matchDate && matchArea && matchAge;
+    return matchFeature && matchCategory && matchDate && matchArea && matchAge;
+  });
+}
+
+function resetAllFilters() {
+  currentFilters = {
+    feature: ['すべて'],
+    category: ['すべて'],
+    date: ['すべて'],
+    area: ['すべて'],
+    age: ['すべて']
+  };
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    if (btn.getAttribute('data-val') === 'すべて') {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
   });
 }
 
@@ -194,6 +222,14 @@ function switchScreen(screenId) {
   if(targetScreen) {
       targetScreen.classList.add('active');
   }
+
+  document.querySelectorAll('.nav-item').forEach(nav => {
+    if (nav.getAttribute('data-screen') === screenId) {
+      nav.classList.add('active');
+    } else {
+      nav.classList.remove('active');
+    }
+  });
 
   if (screenId === 'swipe-screen') {
     updateSwipeScreenDisplay();
@@ -279,14 +315,22 @@ function renderCards() {
     if (event.fee && event.fee.trim() !== "") {
       feeHtml = `<p>💰 料金: ${event.fee}</p>`;
     }
+
+    let categoryHtml = "";
+    if (event.category && event.category.trim() !== "") {
+      categoryHtml = `<p>🏷️ カテゴリー: ${event.category}</p>`;
+    }
     
     card.innerHTML = `
+      <div class="card-stamp stamp-like">LIKE ❤️</div>
+      <div class="card-stamp stamp-skip">SKIP 👋</div>
       ${imageHtml}
       <div class="card-info">
         <h3>${event.name}</h3>
         <p>🕒 ${eventDateText}</p>
         <p>📍 ${event.area}</p>
         <p>🧒 ${event.age}</p>
+        ${categoryHtml}
         ${feeHtml}
         ${organizerHtml}
         ${appHtml}
@@ -307,20 +351,36 @@ function initSwipeOnTopCard() {
 
   const topCard = cards[cards.length - 1];
   const hammer = new Hammer(topCard);
+  const stampLike = topCard.querySelector('.stamp-like');
+  const stampSkip = topCard.querySelector('.stamp-skip');
 
   hammer.on('pan', (e) => {
     const x = e.deltaX;
     const y = e.deltaY;
     const rotate = x * 0.05;
     topCard.style.transform = `translate(${x}px, ${y}px) rotate(${rotate}deg)`;
+
+    const opacity = Math.min(Math.abs(x) / 100, 1);
+    if (x > 0) {
+      if (stampLike) stampLike.style.opacity = opacity;
+      if (stampSkip) stampSkip.style.opacity = 0;
+    } else {
+      if (stampSkip) stampSkip.style.opacity = opacity;
+      if (stampLike) stampLike.style.opacity = 0;
+    }
   });
 
   hammer.on('panend', (e) => {
-    const threshold = 100;
+    const threshold = 90;
+    if (stampLike) stampLike.style.opacity = 0;
+    if (stampSkip) stampSkip.style.opacity = 0;
+
     if (e.deltaX > threshold) {
       saveToFavorites(topCard.getAttribute('data-id'));
       showLikeStamp();
       removeTopCard(topCard, 1000); 
+    } else if (e.deltaX < -threshold) {
+      removeTopCard(topCard, -1000);
     } else {
       topCard.style.transform = 'translate(0px, 0px) rotate(0deg)';
     }
@@ -365,7 +425,7 @@ function renderFavorites() {
   const favorites = JSON.parse(localStorage.getItem('kidsNaviFavorites')) || [];
   
   if (favorites.length === 0) {
-    listContainer.innerHTML = '<p style="text-align:center;">まだお気に入りはないよ。</p>';
+    listContainer.innerHTML = '<p style="text-align:center; padding:30px; font-weight:bold; color:#777;">まだ「いきたい」に追加したイベントはないよ。</p>';
     return;
   }
 
@@ -435,5 +495,158 @@ function showEventDetail(id) {
         <a href="${event.url}" target="_blank" rel="noopener noreferrer" class="detail-url-btn">公式サイトをみる 🔗</a>
       `;
       switchScreen('detail-screen');
+  }
+}
+
+function setupGridMenu() {
+  const featureBtn = document.getElementById('menu-feature-btn');
+  if (featureBtn) {
+    featureBtn.addEventListener('click', () => {
+      renderFeatureCards();
+      switchScreen('feature-list-screen');
+    });
+  }
+
+  const searchBtn = document.getElementById('menu-search-btn');
+  if (searchBtn) {
+    searchBtn.addEventListener('click', () => {
+      switchScreen('filter-screen');
+    });
+  }
+
+  const feedbackBtn = document.getElementById('menu-feedback-btn');
+  if (feedbackBtn) {
+    feedbackBtn.addEventListener('click', () => {
+      switchScreen('feedback-screen');
+    });
+  }
+
+  const permanentBtn = document.getElementById('menu-permanent-btn');
+  if (permanentBtn) {
+    permanentBtn.addEventListener('click', () => {
+      renderCategoryCards();
+      switchScreen('category-list-screen');
+    });
+  }
+}
+
+function renderFeatureCards() {
+  const featContainer = document.getElementById('feature-cards-container');
+  if (!featContainer) return;
+
+  featContainer.innerHTML = '';
+  const features = [...new Set(allEvents.map(e => e.feature).filter(f => f && f.trim() !== ''))];
+
+  if (features.length === 0) {
+    featContainer.innerHTML = '<p style="text-align:center; color:#888;">登録されている特集はまだないよ。</p>';
+    return;
+  }
+
+  features.forEach(feature => {
+    const count = allEvents.filter(e => e.feature === feature).length;
+    const card = document.createElement('div');
+    card.className = 'feature-card-item';
+    card.innerHTML = `
+      <div class="feature-card-title">
+        <span>🌟</span>
+        <span>${feature}</span>
+      </div>
+      <span class="feature-card-badge">${count}件</span>
+    `;
+
+    card.addEventListener('click', () => {
+      currentFilters = {
+        feature: [feature],
+        category: ['すべて'],
+        date: ['すべて'],
+        area: ['すべて'],
+        age: ['すべて']
+      };
+      updateFilterButtonStates();
+      applyFilters();
+      renderCards();
+      switchScreen('swipe-screen');
+    });
+
+    featContainer.appendChild(card);
+  });
+}
+
+function renderCategoryCards() {
+  const catContainer = document.getElementById('permanent-category-cards-container');
+  if (!catContainer) return;
+
+  catContainer.innerHTML = '';
+  const categories = [...new Set(allEvents.map(e => e.category).filter(c => c && c.trim() !== ''))];
+
+  if (categories.length === 0) {
+    catContainer.innerHTML = '<p style="text-align:center; color:#888;">登録されているカテゴリーはありません。</p>';
+    return;
+  }
+
+  categories.forEach(cat => {
+    const count = allEvents.filter(e => e.category === cat).length;
+    const card = document.createElement('div');
+    card.className = 'feature-card-item';
+    card.innerHTML = `
+      <div class="feature-card-title">
+        <span>🏢</span>
+        <span>${cat}</span>
+      </div>
+      <span class="feature-card-badge">${count}件</span>
+    `;
+
+    card.addEventListener('click', () => {
+      currentFilters = {
+        feature: ['すべて'],
+        category: [cat],
+        date: ['すべて'],
+        area: ['すべて'],
+        age: ['すべて']
+      };
+      updateFilterButtonStates();
+      applyFilters();
+      renderCards();
+      switchScreen('swipe-screen');
+    });
+
+    catContainer.appendChild(card);
+  });
+}
+
+function updateFilterButtonStates() {
+  ['feature', 'date', 'area', 'age'].forEach(group => {
+    const buttons = document.querySelectorAll(`#filter-${group} .filter-btn`);
+    buttons.forEach(btn => {
+      const val = btn.getAttribute('data-val');
+      if (currentFilters[group] && currentFilters[group].includes(val)) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  });
+}
+
+function setupFeedbackForm() {
+  const form = document.getElementById('feedback-form');
+  const thankyou = document.getElementById('feedback-thankyou');
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = document.getElementById('feedback-text').value;
+      if (text.trim() !== '') {
+        let feedbacks = JSON.parse(localStorage.getItem('kidsNaviFeedbacks')) || [];
+        feedbacks.push({ date: new Date().toISOString(), text: text });
+        localStorage.setItem('kidsNaviFeedbacks', JSON.stringify(feedbacks));
+
+        if (thankyou) thankyou.classList.remove('hidden');
+        form.reset();
+        setTimeout(() => {
+          if (thankyou) thankyou.classList.add('hidden');
+          switchScreen('home-screen');
+        }, 1800);
+      }
+    });
   }
 }
