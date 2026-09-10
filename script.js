@@ -517,7 +517,7 @@ function setupGridMenu() {
   const feedbackBtn = document.getElementById('menu-feedback-btn');
   if (feedbackBtn) {
     feedbackBtn.addEventListener('click', () => {
-      switchScreen('feedback-screen');
+      window.open('https://docs.google.com/forms/d/e/1FAIpQLSd5Ferk7n4lf2_jYgMtQW0EHWo9C4vBLRuDCQ5JX_nMbjrX5g/viewform?usp=publish-editor', '_blank', 'noopener,noreferrer');
     });
   }
 
